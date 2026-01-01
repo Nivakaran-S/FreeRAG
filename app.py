@@ -4,9 +4,31 @@ import gradio as gr
 from pathlib import Path
 import tempfile
 import os
+import sys
+import logging
+
+# Configure logging for HuggingFace Spaces visibility
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Force stdout to be unbuffered for real-time logs
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(line_buffering=True)
+
+logger.info("="*50)
+logger.info("🚀 FreeRAG Starting...")
+logger.info("="*50)
 
 from src.config import Config
 from src.rag.pipeline import RAGPipeline
+
+logger.info("✅ Core modules imported successfully")
 
 
 # Global pipeline instance
@@ -17,7 +39,10 @@ def get_pipeline() -> RAGPipeline:
     """Get or create the RAG pipeline."""
     global pipeline
     if pipeline is None:
+        logger.info("🔧 Initializing RAG pipeline...")
+        logger.info("📥 This may take a few minutes on first run (downloading models)...")
         pipeline = RAGPipeline(Config.default())
+        logger.info("✅ RAG pipeline initialized successfully!")
     return pipeline
 
 
@@ -219,6 +244,22 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
+    logger.info("="*50)
+    logger.info("🌐 Launching Gradio interface...")
+    logger.info(f"📍 Server: 0.0.0.0:7860")
+    logger.info("="*50)
+    
+    # Pre-initialize pipeline to show download progress in logs
+    logger.info("🔄 Pre-loading models (this may take a few minutes)...")
+    try:
+        get_pipeline()
+        logger.info("✅ Models loaded successfully!")
+    except Exception as e:
+        logger.warning(f"⚠️ Model pre-load failed: {e}")
+        logger.info("Models will be loaded on first query instead.")
+    
+    logger.info("🎉 FreeRAG is ready! Starting web server...")
+    
     demo.launch(
         server_name="0.0.0.0",
         server_port=7860,
