@@ -75,7 +75,7 @@ jobs:
           cd deploy
           
           # Initialize git for the deployment
-          git init
+          git init -b main
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
           git add .
