@@ -65,13 +65,13 @@ jobs:
       - name: Push to HuggingFace Spaces
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE: ${{ vars.HF_SPACE_NAME || 'freerag' }}
-          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE: ${{ secrets.HF_SPACE_NAME || 'freerag' }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
         run: |
           # Install huggingface_hub CLI
           pip install huggingface_hub
           
-          
+
           # Login to HuggingFace
           huggingface-cli login --token $HF_TOKEN
           
