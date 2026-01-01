@@ -1,0 +1,90 @@
+name: Deploy to HuggingFace Spaces
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'notebooks/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false  # We don't use LFS to avoid large file issues
+      
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Verify no large files
+        run: |
+          echo "Checking for files larger than 50MB..."
+          find . -type f -size +50M -not -path "./.git/*" | head -20
+          LARGE_FILES=$(find . -type f -size +50M -not -path "./.git/*" | wc -l)
+          if [ "$LARGE_FILES" -gt 0 ]; then
+            echo "⚠️ Warning: Found $LARGE_FILES files larger than 50MB"
+            echo "These files will be excluded from HuggingFace Spaces deployment"
+          fi
+      
+      - name: Create deployment package
+        run: |
+          # Create a clean deployment directory
+          mkdir -p deploy
+          
+          # Copy only necessary files (exclude large files, venv, cache, etc.)
+          rsync -av --progress . deploy/ \
+            --exclude='.git' \
+            --exclude='.venv' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.pytest_cache' \
+            --exclude='chroma_db' \
+            --exclude='data' \
+            --exclude='notebooks' \
+            --exclude='*.gguf' \
+            --exclude='*.bin' \
+            --exclude='deploy' \
+            --exclude='.github'
+          
+          # Show what will be deployed
+          echo "Files to deploy:"
+          ls -la deploy/
+          du -sh deploy/
+      
+      - name: Push to HuggingFace Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE_NAME || 'freerag' }}
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+        run: |
+          # Install huggingface_hub CLI
+          pip install huggingface_hub
+          
+          # Login to HuggingFace
+          huggingface-cli login --token $HF_TOKEN
+          
+          # Push to space
+          cd deploy
+          
+          # Initialize git for the deployment
+          git init
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+          git add .
+          git commit -m "Deploy from GitHub Actions"
+          
+          # Push to HuggingFace Spaces
+          git push --force https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE} main
+          
+          echo "✅ Successfully deployed to https://huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE}"
