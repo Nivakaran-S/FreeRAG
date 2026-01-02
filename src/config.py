@@ -7,8 +7,8 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using TinyLlama-1.1B - completely ungated, English-focused
-    repo_id: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    # Using StableLM-Zephyr-3B - good quality, English focused, ungated
+    repo_id: str = "stabilityai/stablelm-zephyr-3b"
     n_ctx: int = 2048
     n_threads: int = 2
     max_tokens: int = 256
