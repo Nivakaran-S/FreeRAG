@@ -121,7 +121,7 @@ class RAGPipeline:
         return self.vector_store.add_chunks(chunks)
     
     def query(self, question: str, top_k: Optional[int] = None) -> Dict[str, Any]:
-        """Query the RAG system.
+        """Query the RAG system with caching.
         
         Args:
             question: User's question.
@@ -130,6 +130,21 @@ class RAGPipeline:
         Returns:
             Dict with answer and sources.
         """
+        from src.cache import get_response_cache
+        cache = get_response_cache()
+        
+        # Check cache first
+        cached_response = cache.get(question)
+        if cached_response:
+            # Return cached response
+            return {
+                "question": question,
+                "answer": cached_response,
+                "context": "[Cached]",
+                "sources": [],
+                "cached": True
+            }
+        
         # Retrieve relevant context
         context = self.retriever.retrieve_text(question, top_k)
         sources = self.retriever.retrieve(question, top_k)
@@ -137,18 +152,23 @@ class RAGPipeline:
         # Generate answer using LLM
         answer = self.llm.chat_with_context(question, context)
         
+        # Cache the response for future identical questions
+        source_list = [
+            {
+                "filename": s["metadata"].get("filename", "Unknown"),
+                "source": s["metadata"].get("source", "Unknown"),
+                "distance": s.get("distance")
+            }
+            for s in sources
+        ]
+        cache.set(question, answer, sources=source_list)
+        
         return {
             "question": question,
             "answer": answer,
             "context": context,
-            "sources": [
-                {
-                    "filename": s["metadata"].get("filename", "Unknown"),
-                    "source": s["metadata"].get("source", "Unknown"),
-                    "distance": s.get("distance")
-                }
-                for s in sources
-            ]
+            "sources": source_list,
+            "cached": False
         }
     
     def chat(self, question: str) -> str:
