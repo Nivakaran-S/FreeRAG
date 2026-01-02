@@ -121,7 +121,12 @@ class RAGPipeline:
         return self.vector_store.add_chunks(chunks)
     
     def query(self, question: str, top_k: Optional[int] = None) -> Dict[str, Any]:
-        """Query the RAG system with caching.
+        """Query the RAG system with semantic caching.
+        
+        Lookup order:
+        1. Exact cache match (instant)
+        2. Semantic similarity match (instant)
+        3. Model generation (slow)
         
         Args:
             question: User's question.
@@ -131,28 +136,43 @@ class RAGPipeline:
             Dict with answer and sources.
         """
         from src.cache import get_response_cache
-        cache = get_response_cache()
+        from src.qa_store import get_qa_store
         
-        # Check cache first
+        cache = get_response_cache()
+        qa_store = get_qa_store()
+        
+        # 1. Check exact cache first
         cached_response = cache.get(question)
         if cached_response:
-            # Return cached response
             return {
                 "question": question,
                 "answer": cached_response,
-                "context": "[Cached]",
+                "context": "[Exact Cache]",
                 "sources": [],
-                "cached": True
+                "cached": True,
+                "match_type": "exact"
             }
         
-        # Retrieve relevant context
+        # 2. Check semantic similarity
+        similar = qa_store.find_similar(question)
+        if similar:
+            matched_q, matched_answer, score = similar
+            return {
+                "question": question,
+                "answer": matched_answer,
+                "context": f"[Semantic Match: {score:.0%} similar]",
+                "sources": [],
+                "cached": True,
+                "match_type": "semantic",
+                "matched_question": matched_q
+            }
+        
+        # 3. Generate answer using LLM (no cache hit)
         context = self.retriever.retrieve_text(question, top_k)
         sources = self.retriever.retrieve(question, top_k)
-        
-        # Generate answer using LLM
         answer = self.llm.chat_with_context(question, context)
         
-        # Cache the response for future identical questions
+        # Build source list
         source_list = [
             {
                 "filename": s["metadata"].get("filename", "Unknown"),
@@ -161,14 +181,18 @@ class RAGPipeline:
             }
             for s in sources
         ]
+        
+        # Store in both caches for future use
         cache.set(question, answer, sources=source_list)
+        qa_store.add(question, answer, sources=source_list)
         
         return {
             "question": question,
             "answer": answer,
             "context": context,
             "sources": source_list,
-            "cached": False
+            "cached": False,
+            "match_type": "generated"
         }
     
     def chat(self, question: str) -> str:
