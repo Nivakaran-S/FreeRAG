@@ -7,11 +7,11 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using Qwen2-1.5B - good balance of accuracy and speed
-    repo_id: str = "Qwen/Qwen2-1.5B-Instruct"
+    # Using Llama-3.2-1B - English focused, good quality
+    repo_id: str = "meta-llama/Llama-3.2-1B-Instruct"
     n_ctx: int = 2048
     n_threads: int = 2
-    max_tokens: int = 256  # More complete responses
+    max_tokens: int = 256
     temperature: float = 0.7
     verbose: bool = False
 
