@@ -6,6 +6,7 @@ import tempfile
 import os
 import sys
 import logging
+import threading
 
 # Configure logging for HuggingFace Spaces visibility
 logging.basicConfig(
@@ -31,18 +32,20 @@ from src.rag.pipeline import RAGPipeline
 logger.info("✅ Core modules imported successfully")
 
 
-# Global pipeline instance
+# Global pipeline instance with thread lock for concurrent access
 pipeline: RAGPipeline = None
+pipeline_lock = threading.Lock()
 
 
 def get_pipeline() -> RAGPipeline:
-    """Get or create the RAG pipeline."""
+    """Get or create the RAG pipeline (thread-safe)."""
     global pipeline
-    if pipeline is None:
-        logger.info("🔧 Initializing RAG pipeline...")
-        logger.info("📥 This may take a few minutes on first run (downloading models)...")
-        pipeline = RAGPipeline(Config.default())
-        logger.info("✅ RAG pipeline initialized successfully!")
+    with pipeline_lock:
+        if pipeline is None:
+            logger.info("🔧 Initializing RAG pipeline...")
+            logger.info("📥 This may take a few minutes on first run (downloading models)...")
+            pipeline = RAGPipeline(Config.default())
+            logger.info("✅ RAG pipeline initialized successfully!")
     return pipeline
 
 
@@ -260,8 +263,15 @@ if __name__ == "__main__":
     
     logger.info("🎉 FreeRAG is ready! Starting web server...")
     
+    # Enable queue for concurrent request handling
+    demo.queue(
+        max_size=10,  # Maximum number of requests in queue
+        default_concurrency_limit=2  # Process 2 requests concurrently
+    )
+    
     demo.launch(
         server_name="0.0.0.0",
         server_port=7860,
-        share=False
+        share=False,
+        max_threads=4  # Allow multiple concurrent connections
     )
