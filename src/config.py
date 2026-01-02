@@ -7,8 +7,8 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using Gemma-2-2B - English focused, no gating restrictions
-    repo_id: str = "google/gemma-2-2b-it"
+    # Using TinyLlama-1.1B - completely ungated, English-focused
+    repo_id: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     n_ctx: int = 2048
     n_threads: int = 2
     max_tokens: int = 256
