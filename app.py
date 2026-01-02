@@ -35,6 +35,7 @@ logger.info("✅ Core modules imported successfully")
 # Global pipeline instance with thread lock for concurrent access
 pipeline: RAGPipeline = None
 pipeline_lock = threading.Lock()
+faq_loaded = False
 
 
 def get_pipeline() -> RAGPipeline:
@@ -47,6 +48,52 @@ def get_pipeline() -> RAGPipeline:
             pipeline = RAGPipeline(Config.default())
             logger.info("✅ RAG pipeline initialized successfully!")
     return pipeline
+
+
+def load_faq_documents() -> int:
+    """Auto-load FAQ documents from the faq/ folder at startup.
+    
+    Returns:
+        Number of chunks loaded.
+    """
+    global faq_loaded
+    if faq_loaded:
+        return 0
+    
+    faq_dir = Path("./faq")
+    if not faq_dir.exists():
+        logger.info("📁 No FAQ folder found, skipping FAQ auto-load")
+        faq_loaded = True
+        return 0
+    
+    # Find all supported files in FAQ folder
+    supported_extensions = {'.pdf', '.docx', '.txt', '.md'}
+    faq_files = [
+        f for f in faq_dir.iterdir() 
+        if f.suffix.lower() in supported_extensions and f.name != 'README.md'
+    ]
+    
+    if not faq_files:
+        logger.info("📁 FAQ folder is empty, no documents to load")
+        faq_loaded = True
+        return 0
+    
+    logger.info(f"📚 Loading {len(faq_files)} FAQ document(s)...")
+    
+    pipe = get_pipeline()
+    total_chunks = 0
+    
+    for faq_file in faq_files:
+        try:
+            chunks = pipe.ingest_file(str(faq_file))
+            total_chunks += chunks
+            logger.info(f"✅ Loaded FAQ: {faq_file.name} ({chunks} chunks)")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load FAQ {faq_file.name}: {e}")
+    
+    faq_loaded = True
+    logger.info(f"📚 FAQ loading complete: {total_chunks} total chunks")
+    return total_chunks
 
 
 def process_files(files):
@@ -314,9 +361,16 @@ if __name__ == "__main__":
     try:
         get_pipeline()
         logger.info("✅ Models loaded successfully!")
+        
+        # Auto-load FAQ documents if present
+        logger.info("📚 Checking for FAQ documents...")
+        faq_chunks = load_faq_documents()
+        if faq_chunks > 0:
+            logger.info(f"📚 Loaded {faq_chunks} FAQ chunks for instant answers")
+            
     except Exception as e:
-        logger.warning(f"⚠️ Model pre-load failed: {e}")
-        logger.info("Models will be loaded on first query instead.")
+        logger.warning(f"⚠️ Pre-load failed: {e}")
+        logger.info("Models and FAQs will be loaded on first query instead.")
     
     logger.info("🎉 FreeRAG is ready! Starting web server...")
     
