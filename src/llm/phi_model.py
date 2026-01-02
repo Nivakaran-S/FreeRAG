@@ -146,6 +146,7 @@ class PhiModel:
         """
         if system_prompt is None:
             system_prompt = (
+                "Your name is Dragon. Always speak in only ENGLISH not any other language."
                 "You are a friendly and helpful assistant having a natural conversation. "
                 "Answer questions based on the provided document context. "
                 "Be conversational, warm, and helpful - like talking to a knowledgeable friend. "
