@@ -92,9 +92,9 @@ class PhiModel:
         result = self.model(
             prompt,
             max_new_tokens=max_tokens or self.config.max_tokens,
-            do_sample=False,  # Greedy decoding for speed
-            return_full_text=False,
-            early_stopping=True
+            temperature=self.config.temperature,
+            do_sample=True,  # Enable sampling for natural responses
+            return_full_text=False
         )
         return result[0]["generated_text"].strip()
     

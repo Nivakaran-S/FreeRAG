@@ -7,11 +7,11 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using Qwen2-0.5B for fast response generation
-    repo_id: str = "Qwen/Qwen2-0.5B-Instruct"
-    n_ctx: int = 1024  # Smaller context for speed
+    # Using Qwen2-1.5B - good balance of accuracy and speed
+    repo_id: str = "Qwen/Qwen2-1.5B-Instruct"
+    n_ctx: int = 2048
     n_threads: int = 2
-    max_tokens: int = 150  # Shorter responses for faster generation
+    max_tokens: int = 256  # More complete responses
     temperature: float = 0.7
     verbose: bool = False
 
