@@ -377,8 +377,12 @@ if __name__ == "__main__":
     # Enable queue for concurrent request handling (Gradio 4.0.0 compatible)
     demo.queue(max_size=10)
     
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False
-    )
+    # Mount FastAPI for REST API endpoints
+    from api import api as fastapi_app
+    app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+    
+    logger.info("🔌 REST API available at /api/")
+    logger.info("📚 API docs at /docs")
+    
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)

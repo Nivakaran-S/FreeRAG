@@ -21,5 +21,9 @@ typer>=0.9.0
 # Web UI (for HuggingFace Spaces)
 gradio>=4.0.0
 
+# API
+uvicorn>=0.27.0
+python-multipart>=0.0.6
+
 # Dev
 ipykernel
