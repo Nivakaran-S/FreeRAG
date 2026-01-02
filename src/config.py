@@ -7,8 +7,8 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using StableLM-Zephyr-3B - good quality, English focused, ungated
-    repo_id: str = "stabilityai/stablelm-zephyr-3b"
+    # Using Phi-3-mini-4k - best quality, excellent reasoning, ungated
+    repo_id: str = "microsoft/Phi-3-mini-4k-instruct"
     n_ctx: int = 2048
     n_threads: int = 2
     max_tokens: int = 256
