@@ -50,52 +50,110 @@ def get_pipeline() -> RAGPipeline:
 
 
 def process_files(files):
-    """Process uploaded files and add to vector store."""
+    """Process uploaded files with production-grade validation."""
     if not files:
-        return "Please upload at least one file.", get_stats_text()
+        return "📁 Please upload at least one file.", get_stats_text()
+    
+    # Constants for validation
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.txt', '.md'}
     
     pipe = get_pipeline()
     total_chunks = 0
     processed_files = []
+    errors = []
     
     for file in files:
         try:
-            # Get the file path from gradio
+            # Get file info
             file_path = file.name if hasattr(file, 'name') else file
+            file_name = Path(file_path).name
+            file_ext = Path(file_path).suffix.lower()
+            
+            # Validate file extension
+            if file_ext not in ALLOWED_EXTENSIONS:
+                errors.append(f"⚠️ {file_name}: Unsupported format. Use PDF, DOCX, TXT, or MD.")
+                continue
+            
+            # Validate file size
+            file_size = os.path.getsize(file_path)
+            if file_size > MAX_FILE_SIZE:
+                errors.append(f"⚠️ {file_name}: File too large ({file_size // 1024 // 1024}MB). Max is 10MB.")
+                continue
+            
+            # Process the file
             count = pipe.ingest_file(file_path)
             total_chunks += count
-            processed_files.append(Path(file_path).name)
+            processed_files.append(file_name)
+            logger.info(f"✅ Processed {file_name}: {count} chunks")
+            
         except Exception as e:
-            return f"Error processing file: {e}", get_stats_text()
+            logger.error(f"Error processing {file_path}: {e}")
+            errors.append(f"❌ {Path(file_path).name}: Processing failed")
     
-    return (
-        f"✅ Successfully processed {len(processed_files)} file(s)!\n"
-        f"📄 Files: {', '.join(processed_files)}\n"
-        f"📊 Added {total_chunks} chunks to the knowledge base.",
-        get_stats_text()
-    )
+    # Build response message
+    messages = []
+    if processed_files:
+        messages.append(f"✅ Successfully processed {len(processed_files)} file(s)")
+        messages.append(f"📄 Files: {', '.join(processed_files)}")
+        messages.append(f"📊 Added {total_chunks} chunks to knowledge base")
+    
+    if errors:
+        messages.extend(errors)
+    
+    if not processed_files and not errors:
+        messages.append("❌ No files were processed. Please try again.")
+    
+    return "\n".join(messages), get_stats_text()
 
 
 def answer_question(question, top_k, chat_history):
-    """Answer a question using RAG."""
-    if not question.strip():
+    """Answer a question with production-grade error handling."""
+    # Input validation
+    if not question or not question.strip():
         return chat_history, ""
     
-    pipe = get_pipeline()
+    question = question.strip()
     
-    if pipe.vector_store.get_count() == 0:
-        response = "⚠️ No documents have been uploaded yet. Please upload some documents first."
-    else:
-        try:
-            result = pipe.query(question, top_k=int(top_k))
-            response = result["answer"]
-            
-            # Add sources
-            if result["sources"]:
-                sources = [s["filename"] for s in result["sources"]]
-                response += f"\n\n---\n📚 *Sources: {', '.join(sources)}*"
-        except Exception as e:
-            response = f"❌ Error: {e}"
+    # Length validation
+    MAX_QUESTION_LENGTH = 1000
+    if len(question) > MAX_QUESTION_LENGTH:
+        response = f"⚠️ Your question is too long ({len(question)} chars). Please keep it under {MAX_QUESTION_LENGTH} characters."
+        chat_history.append((question[:100] + "...", response))
+        return chat_history, ""
+    
+    try:
+        pipe = get_pipeline()
+        
+        if pipe.vector_store.get_count() == 0:
+            response = (
+                "📁 **No documents uploaded yet!**\n\n"
+                "Please upload some documents using the panel on the left, "
+                "then ask your questions."
+            )
+        else:
+            try:
+                result = pipe.query(question, top_k=int(top_k))
+                response = result.get("answer", "I couldn't generate a response. Please try again.")
+                
+                # Add sources if available
+                sources = result.get("sources", [])
+                if sources:
+                    unique_sources = list(set(s.get("filename", "Unknown") for s in sources))
+                    response += f"\n\n---\n📚 *Sources: {', '.join(unique_sources)}*"
+                    
+            except Exception as e:
+                logger.error(f"Query error: {e}")
+                response = (
+                    "😔 I had trouble processing your question.\n\n"
+                    "**Try:**\n"
+                    "- Rephrasing your question\n"
+                    "- Asking something more specific\n"
+                    "- Uploading more relevant documents"
+                )
+    except Exception as e:
+        logger.error(f"Pipeline error: {e}")
+        response = "⚠️ The system is temporarily unavailable. Please try again in a moment."
     
     chat_history.append((question, response))
     return chat_history, ""
