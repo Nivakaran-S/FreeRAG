@@ -1,14 +1,25 @@
-"""Phi-3.5-mini model wrapper using llama-cpp-python."""
+"""LLM model wrapper using HuggingFace Transformers."""
 
-from typing import Optional, List, Dict, Any
-from huggingface_hub import hf_hub_download
-from llama_cpp import Llama
+import logging
+import sys
+from typing import Optional, List, Dict
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 from src.config import ModelConfig
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
+
 
 class PhiModel:
-    """Wrapper for Phi-3.5-mini model."""
+    """Wrapper for LLM model using HuggingFace Transformers."""
     
     def __init__(self, config: Optional[ModelConfig] = None):
         """Initialize the model wrapper.
@@ -17,32 +28,56 @@ class PhiModel:
             config: Model configuration. Uses defaults if not provided.
         """
         self.config = config or ModelConfig()
-        self._model: Optional[Llama] = None
-        self._model_path: Optional[str] = None
+        self._model = None
+        self._tokenizer = None
+        self._pipeline = None
     
     @property
-    def model(self) -> Llama:
+    def model(self):
         """Lazy load the model."""
-        if self._model is None:
+        if self._pipeline is None:
             self._load_model()
-        return self._model
+        return self._pipeline
     
     def _load_model(self) -> None:
-        """Download and load the model."""
-        print(f"Downloading model from {self.config.repo_id}...")
-        self._model_path = hf_hub_download(
-            repo_id=self.config.repo_id,
-            filename=self.config.filename
-        )
+        """Download and load the model with progress logging."""
+        logger.info(f"📥 Loading model: {self.config.repo_id}")
+        logger.info(f"   This may take a few minutes on first run...")
         
-        print("Loading model into memory...")
-        self._model = Llama(
-            model_path=self._model_path,
-            n_ctx=self.config.n_ctx,
-            n_threads=self.config.n_threads,
-            verbose=self.config.verbose
-        )
-        print("Model loaded successfully!")
+        try:
+            # Load tokenizer
+            logger.info("🔧 Loading tokenizer...")
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.config.repo_id,
+                trust_remote_code=True
+            )
+            
+            # Load model with CPU optimizations
+            logger.info("🔧 Loading model weights...")
+            self._model = AutoModelForCausalLM.from_pretrained(
+                self.config.repo_id,
+                torch_dtype=torch.float32,
+                device_map="cpu",
+                trust_remote_code=True,
+                low_cpu_mem_usage=True
+            )
+            
+            # Create pipeline for text generation
+            self._pipeline = pipeline(
+                "text-generation",
+                model=self._model,
+                tokenizer=self._tokenizer,
+                max_new_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+                do_sample=True,
+                pad_token_id=self._tokenizer.eos_token_id
+            )
+            
+            logger.info("✅ Model loaded successfully!")
+            
+        except Exception as e:
+            logger.error(f"❌ Model loading failed: {e}")
+            raise
     
     def generate(self, prompt: str, max_tokens: Optional[int] = None) -> str:
         """Generate text completion.
@@ -54,13 +89,14 @@ class PhiModel:
         Returns:
             Generated text.
         """
-        output = self.model(
+        result = self.model(
             prompt,
-            max_tokens=max_tokens or self.config.max_tokens,
+            max_new_tokens=max_tokens or self.config.max_tokens,
             temperature=self.config.temperature,
-            echo=False
+            do_sample=True,
+            return_full_text=False
         )
-        return output["choices"][0]["text"].strip()
+        return result[0]["generated_text"].strip()
     
     def chat(
         self, 
@@ -76,12 +112,21 @@ class PhiModel:
         Returns:
             Assistant's response.
         """
-        output = self.model.create_chat_completion(
-            messages=messages,
-            max_tokens=max_tokens or self.config.max_tokens,
-            temperature=self.config.temperature
-        )
-        return output["choices"][0]["message"]["content"].strip()
+        # Format messages for chat
+        chat_text = ""
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            if role == "system":
+                chat_text += f"System: {content}\n\n"
+            elif role == "user":
+                chat_text += f"User: {content}\n\n"
+            elif role == "assistant":
+                chat_text += f"Assistant: {content}\n\n"
+        
+        chat_text += "Assistant: "
+        
+        return self.generate(chat_text, max_tokens)
     
     def chat_with_context(
         self, 

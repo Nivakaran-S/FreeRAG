@@ -20,7 +20,6 @@ env/
 # Project specific
 chroma_db/
 data/
-*.gguf
 *.bin
 
 # Cache
@@ -32,6 +31,8 @@ data/
 .DS_Store
 Thumbs.db
 
-# Large model files (should not be in git)
+# Large files (not needed with Transformers - downloads automatically)
 models/
+*.gguf
 *.safetensors
+models/.cache/

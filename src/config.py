@@ -7,11 +7,11 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    repo_id: str = "bartowski/Phi-3.5-mini-instruct-GGUF"
-    filename: str = "Phi-3.5-mini-instruct-Q4_K_M.gguf"
-    n_ctx: int = 4096
-    n_threads: int = 4
-    max_tokens: int = 512
+    # Using Qwen2-0.5B from HuggingFace (no GGUF format needed)
+    repo_id: str = "Qwen/Qwen2-0.5B-Instruct"
+    n_ctx: int = 2048
+    n_threads: int = 2
+    max_tokens: int = 256
     temperature: float = 0.7
     verbose: bool = False
 

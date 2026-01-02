@@ -1,6 +1,8 @@
 # Core Dependencies
 huggingface_hub>=0.20.0
-llama-cpp-python>=0.2.50
+transformers>=4.36.0
+accelerate>=0.25.0
+torch>=2.0.0
 
 # Embeddings
 sentence-transformers>=2.2.2

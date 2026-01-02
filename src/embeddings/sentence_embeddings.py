@@ -1,6 +1,9 @@
 """Sentence embeddings using sentence-transformers."""
 
 import os
+import sys
+import logging
+
 # Disable TensorFlow to avoid import conflicts with transformers
 os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
@@ -10,6 +13,14 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 
 from src.config import EmbeddingConfig
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingModel:
@@ -28,12 +39,17 @@ class EmbeddingModel:
     def model(self) -> SentenceTransformer:
         """Lazy load the embedding model."""
         if self._model is None:
-            print(f"Loading embedding model: {self.config.model_name}...")
-            self._model = SentenceTransformer(
-                self.config.model_name,
-                device=self.config.device
-            )
-            print("Embedding model loaded!")
+            logger.info(f"📥 Loading embedding model: {self.config.model_name}")
+            logger.info(f"   Size: ~90MB")
+            try:
+                self._model = SentenceTransformer(
+                    self.config.model_name,
+                    device=self.config.device
+                )
+                logger.info("✅ Embedding model loaded!")
+            except Exception as e:
+                logger.error(f"❌ Embedding model failed: {e}")
+                raise
         return self._model
     
     @property
