@@ -146,17 +146,22 @@ class PhiModel:
         """
         if system_prompt is None:
             system_prompt = (
-                "You are a helpful assistant. Answer the user's question based on "
-                "the provided context. If the context doesn't contain relevant "
-                "information, say so honestly. Be concise and accurate."
+                "You are a friendly and helpful assistant having a natural conversation. "
+                "Answer questions based on the provided document context. "
+                "Be conversational, warm, and helpful - like talking to a knowledgeable friend. "
+                "If you can find relevant information, explain it clearly and naturally. "
+                "If the context doesn't have enough information, kindly ask the user to provide "
+                "more details or suggest what they might be looking for. "
+                "Keep your responses concise but friendly."
             )
         
-        user_message = f"""Context:
+        user_message = f"""Here's some information from the documents:
+
 {context}
 
-Question: {query}
+User's question: {query}
 
-Please answer based on the context provided above."""
+Please respond naturally and helpfully:"""
         
         messages = [
             {"role": "system", "content": system_prompt},

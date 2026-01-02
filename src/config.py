@@ -7,8 +7,8 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using Qwen2-1.5B from HuggingFace (better quality)
-    repo_id: str = "Qwen/Qwen2-1.5B-Instruct"
+    # Using Phi-3-mini from Microsoft (high quality, conversational)
+    repo_id: str = "microsoft/Phi-3-mini-4k-instruct"
     n_ctx: int = 2048
     n_threads: int = 2
     max_tokens: int = 256
