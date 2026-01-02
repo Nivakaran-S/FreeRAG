@@ -7,8 +7,8 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using Llama-3.2-1B - English focused, good quality
-    repo_id: str = "meta-llama/Llama-3.2-1B-Instruct"
+    # Using Gemma-2-2B - English focused, no gating restrictions
+    repo_id: str = "google/gemma-2-2b-it"
     n_ctx: int = 2048
     n_threads: int = 2
     max_tokens: int = 256
