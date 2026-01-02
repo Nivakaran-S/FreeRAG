@@ -3,7 +3,6 @@
 from typing import Optional, Dict, Any
 
 from src.config import Config
-from src.llm.phi_model import PhiModel
 from src.embeddings.sentence_embeddings import EmbeddingModel
 from src.document_loader.loader import DocumentLoader
 from src.document_loader.splitter import TextSplitter
@@ -24,7 +23,7 @@ class RAGPipeline:
         self.config.ensure_directories()
         
         # Initialize components lazily
-        self._llm: Optional[PhiModel] = None
+        self._llm = None  # Will be GroqLLM with fallback
         self._embedding_model: Optional[EmbeddingModel] = None
         self._vector_store: Optional[VectorStore] = None
         self._retriever: Optional[Retriever] = None
@@ -32,10 +31,11 @@ class RAGPipeline:
         self._text_splitter: Optional[TextSplitter] = None
     
     @property
-    def llm(self) -> PhiModel:
-        """Get LLM instance."""
+    def llm(self):
+        """Get LLM instance (Groq with local fallback)."""
         if self._llm is None:
-            self._llm = PhiModel(self.config.model)
+            from src.llm.groq_llm import get_groq_llm
+            self._llm = get_groq_llm()
         return self._llm
     
     @property
