@@ -168,7 +168,49 @@ class RAGPipeline:
                 "matched_question": matched_q
             }
         
-        # 3. Generate answer using LLM (no cache hit)
+        # 3. Check for high-relevance document match (hybrid approach)
+        # If a document chunk has 95%+ similarity, return it directly without model
+        sources = self.retriever.retrieve(question, top_k)
+        
+        if sources:
+            # ChromaDB uses cosine distance: similarity = 1 - distance
+            # Check if best match is highly relevant (distance < 0.05 = 95%+ similarity)
+            best_match = sources[0]
+            best_distance = best_match.get("distance", 1.0)
+            best_similarity = 1 - best_distance if best_distance is not None else 0
+            
+            DIRECT_EXTRACTION_THRESHOLD = 0.90  # 90% similarity = return directly
+            
+            if best_similarity >= DIRECT_EXTRACTION_THRESHOLD:
+                # Return document content directly without model
+                content = best_match.get("content", "")
+                filename = best_match.get("metadata", {}).get("filename", "Unknown")
+                
+                answer = f"📄 **From your document ({filename}):**\n\n{content}"
+                
+                source_list = [
+                    {
+                        "filename": s["metadata"].get("filename", "Unknown"),
+                        "source": s["metadata"].get("source", "Unknown"),
+                        "distance": s.get("distance"),
+                        "similarity": 1 - s.get("distance", 1.0) if s.get("distance") is not None else 0
+                    }
+                    for s in sources
+                ]
+                
+                # Cache this response
+                cache.set(question, answer, sources=source_list)
+                
+                return {
+                    "question": question,
+                    "answer": answer,
+                    "context": f"[Direct Match: {best_similarity:.0%} similar]",
+                    "sources": source_list,
+                    "cached": False,
+                    "match_type": "direct_extraction"
+                }
+        
+        # 4. Generate answer using LLM (no high-relevance match)
         # Get conversation history if session provided
         conversation_history = None
         if session_id:
@@ -177,7 +219,6 @@ class RAGPipeline:
             conversation_history = session_mgr.get_history_for_prompt(session_id)
         
         context = self.retriever.retrieve_text(question, top_k)
-        sources = self.retriever.retrieve(question, top_k)
         answer = self.llm.chat_with_context(
             question, 
             context, 
