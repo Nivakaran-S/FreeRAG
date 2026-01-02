@@ -7,11 +7,11 @@ from pathlib import Path
 @dataclass
 class ModelConfig:
     """LLM model configuration."""
-    # Using Phi-3-mini from Microsoft (high quality, conversational)
-    repo_id: str = "microsoft/Phi-3-mini-4k-instruct"
-    n_ctx: int = 2048
+    # Using Qwen2-0.5B for fast response generation
+    repo_id: str = "Qwen/Qwen2-0.5B-Instruct"
+    n_ctx: int = 1024  # Smaller context for speed
     n_threads: int = 2
-    max_tokens: int = 256
+    max_tokens: int = 150  # Shorter responses for faster generation
     temperature: float = 0.7
     verbose: bool = False
 
