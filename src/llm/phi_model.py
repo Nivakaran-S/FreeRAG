@@ -150,7 +150,9 @@ class PhiModel:
             
             generated = result[0]["generated_text"].strip()
             
-            # Clean up response
+            # Clean up response - remove any fake dialogue continuation
+            generated = self._clean_response(generated)
+            
             if not generated:
                 return "I couldn't generate a response. Please try rephrasing your question."
             
@@ -159,6 +161,46 @@ class PhiModel:
         except Exception as e:
             logger.error(f"Generation error: {e}")
             raise GenerationError(f"Failed to generate response: {str(e)[:100]}")
+    
+    def _clean_response(self, text: str) -> str:
+        """Remove fake dialogue continuations from model output.
+        
+        TinyLlama and similar models sometimes continue generating fake
+        user/assistant dialogue. This method cuts off such continuations.
+        """
+        if not text:
+            return text
+        
+        # Stop patterns - cut off if model starts generating fake dialogue
+        stop_patterns = [
+            "\nUser:", "\nuser:",
+            "\nHuman:", "\nhuman:",
+            "\nSystem:", "\nsystem:",
+            "\nAssistant:", "\nassistant:",
+            "\n\nUser", "\n\nHuman",
+            "User's question:",
+            "\n---\n",
+            "<|", "[INST]", "</s>"
+        ]
+        
+        result = text
+        for pattern in stop_patterns:
+            if pattern in result:
+                result = result.split(pattern)[0]
+        
+        # Also check for repeated newlines with potential role markers
+        lines = result.split("\n")
+        cleaned_lines = []
+        for line in lines:
+            line_lower = line.lower().strip()
+            # Stop if we hit a line that looks like a role marker
+            if line_lower.startswith(("user:", "human:", "system:", "assistant:")):
+                break
+            cleaned_lines.append(line)
+        
+        result = "\n".join(cleaned_lines).strip()
+        
+        return result
     
     def generate_safe(self, prompt: str, max_tokens: Optional[int] = None) -> str:
         """Generate text with fallback on error (never throws).
