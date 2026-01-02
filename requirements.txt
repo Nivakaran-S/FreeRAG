@@ -1,6 +1,6 @@
 # Core Dependencies
 huggingface_hub>=0.20.0
-transformers>=4.36.0
+transformers==4.40.0
 accelerate>=0.25.0
 torch>=2.0.0
 
