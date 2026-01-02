@@ -120,17 +120,18 @@ class RAGPipeline:
         print(f"Adding {len(chunks)} chunks to vector store...")
         return self.vector_store.add_chunks(chunks)
     
-    def query(self, question: str, top_k: Optional[int] = None) -> Dict[str, Any]:
-        """Query the RAG system with semantic caching.
+    def query(self, question: str, top_k: Optional[int] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
+        """Query the RAG system with semantic caching and session history.
         
         Lookup order:
         1. Exact cache match (instant)
         2. Semantic similarity match (instant)
-        3. Model generation (slow)
+        3. Model generation with conversation history (slow)
         
         Args:
             question: User's question.
             top_k: Number of documents to retrieve.
+            session_id: Optional session ID for conversation history.
             
         Returns:
             Dict with answer and sources.
@@ -168,9 +169,20 @@ class RAGPipeline:
             }
         
         # 3. Generate answer using LLM (no cache hit)
+        # Get conversation history if session provided
+        conversation_history = None
+        if session_id:
+            from src.session import get_session_manager
+            session_mgr = get_session_manager()
+            conversation_history = session_mgr.get_history_for_prompt(session_id)
+        
         context = self.retriever.retrieve_text(question, top_k)
         sources = self.retriever.retrieve(question, top_k)
-        answer = self.llm.chat_with_context(question, context)
+        answer = self.llm.chat_with_context(
+            question, 
+            context, 
+            conversation_history=conversation_history
+        )
         
         # Build source list
         source_list = [

@@ -154,11 +154,18 @@ def process_files(files):
     return "\n".join(messages), get_stats_text()
 
 
-def answer_question(question, top_k, chat_history):
-    """Answer a question with production-grade error handling."""
+def answer_question(question, top_k, chat_history, session_id):
+    """Answer a question with session-based conversation history."""
+    from src.session import get_session_manager
+    session_mgr = get_session_manager()
+    
+    # Create session if needed
+    if not session_id:
+        session_id = session_mgr.create_session()
+    
     # Input validation
     if not question or not question.strip():
-        return chat_history, ""
+        return chat_history, "", session_id
     
     question = question.strip()
     
@@ -167,7 +174,7 @@ def answer_question(question, top_k, chat_history):
     if len(question) > MAX_QUESTION_LENGTH:
         response = f"⚠️ Your question is too long ({len(question)} chars). Please keep it under {MAX_QUESTION_LENGTH} characters."
         chat_history.append((question[:100] + "...", response))
-        return chat_history, ""
+        return chat_history, "", session_id
     
     try:
         pipe = get_pipeline()
@@ -180,7 +187,8 @@ def answer_question(question, top_k, chat_history):
             )
         else:
             try:
-                result = pipe.query(question, top_k=int(top_k))
+                # Pass session_id for conversation history
+                result = pipe.query(question, top_k=int(top_k), session_id=session_id)
                 response = result.get("answer", "I couldn't generate a response. Please try again.")
                 
                 # Add sources if available
@@ -188,6 +196,9 @@ def answer_question(question, top_k, chat_history):
                 if sources:
                     unique_sources = list(set(s.get("filename", "Unknown") for s in sources))
                     response += f"\n\n---\n📚 *Sources: {', '.join(unique_sources)}*"
+                
+                # Store in session history
+                session_mgr.add_message(session_id, question, response)
                     
             except Exception as e:
                 logger.error(f"Query error: {e}")
@@ -203,7 +214,7 @@ def answer_question(question, top_k, chat_history):
         response = "⚠️ The system is temporarily unavailable. Please try again in a moment."
     
     chat_history.append((question, response))
-    return chat_history, ""
+    return chat_history, "", session_id
 
 
 def get_stats_text() -> str:
@@ -309,6 +320,9 @@ with gr.Blocks(
             with gr.Row():
                 submit_btn = gr.Button("🔍 Ask", variant="primary", scale=2)
                 clear_chat_btn = gr.Button("🧹 Clear Chat", scale=1)
+        
+        # Hidden state for session management
+        session_id = gr.State(value=None)
     
     # Event handlers
     upload_btn.click(
@@ -319,14 +333,14 @@ with gr.Blocks(
     
     submit_btn.click(
         fn=answer_question,
-        inputs=[question_input, top_k_slider, chatbot],
-        outputs=[chatbot, question_input]
+        inputs=[question_input, top_k_slider, chatbot, session_id],
+        outputs=[chatbot, question_input, session_id]
     )
     
     question_input.submit(
         fn=answer_question,
-        inputs=[question_input, top_k_slider, chatbot],
-        outputs=[chatbot, question_input]
+        inputs=[question_input, top_k_slider, chatbot, session_id],
+        outputs=[chatbot, question_input, session_id]
     )
     
     clear_btn.click(
@@ -334,9 +348,13 @@ with gr.Blocks(
         outputs=[upload_status, stats_display]
     )
     
+    def clear_chat_and_session():
+        """Clear chat history and reset session."""
+        return [], None
+    
     clear_chat_btn.click(
-        fn=lambda: [],
-        outputs=[chatbot]
+        fn=clear_chat_and_session,
+        outputs=[chatbot, session_id]
     )
     
     gr.Markdown("""

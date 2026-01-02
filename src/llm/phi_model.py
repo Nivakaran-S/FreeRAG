@@ -255,14 +255,16 @@ class PhiModel:
         self, 
         query: str, 
         context: str,
-        system_prompt: Optional[str] = None
+        system_prompt: Optional[str] = None,
+        conversation_history: Optional[str] = None
     ) -> str:
-        """Generate response with RAG context.
+        """Generate response with RAG context and conversation history.
         
         Args:
             query: User's question.
             context: Retrieved context from documents.
             system_prompt: Optional system prompt.
+            conversation_history: Optional formatted conversation history (last 6 messages).
             
         Returns:
             Generated response.
@@ -286,13 +288,22 @@ class PhiModel:
         if not context or not context.strip():
             context = "No relevant documents found."
         
-        user_message = f"""Here's some information from the documents:
+        # Build message with optional history
+        history_section = ""
+        if conversation_history and conversation_history.strip():
+            history_section = f"""Previous conversation:
+{conversation_history}
+
+---
+"""
+        
+        user_message = f"""{history_section}Here's some information from the documents:
 
 {context}
 
-User's question: {query}
+User's current question: {query}
 
-Please respond naturally and helpfully:"""
+Please respond naturally and helpfully, considering the conversation context:"""
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -300,3 +311,4 @@ Please respond naturally and helpfully:"""
         ]
         
         return self.chat(messages)
+
