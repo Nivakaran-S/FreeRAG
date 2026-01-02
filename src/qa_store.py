@@ -73,31 +73,39 @@ class SemanticQAStore:
             Tuple of (matched_question, answer, similarity_score) if found,
             None otherwise.
         """
-        if not self._qa_pairs:
-            return None
-        
-        with self._lock:
+        try:
+            if not self._qa_pairs or self._embeddings is None:
+                return None
+            
+            if len(self._embeddings) == 0:
+                return None
+            
             # Compute embedding for the query
             query_embedding = self._compute_embedding(question)
             
-            # Compute cosine similarity with all stored questions
-            if self._embeddings is None or len(self._embeddings) == 0:
-                return None
+            # Handle 1D vs 2D array
+            if len(self._embeddings.shape) == 1:
+                self._embeddings = self._embeddings.reshape(1, -1)
             
             # Normalize for cosine similarity
-            query_norm = query_embedding / np.linalg.norm(query_embedding)
-            store_norms = self._embeddings / np.linalg.norm(self._embeddings, axis=1, keepdims=True)
+            query_norm = query_embedding / (np.linalg.norm(query_embedding) + 1e-8)
+            norms = np.linalg.norm(self._embeddings, axis=1, keepdims=True) + 1e-8
+            store_norms = self._embeddings / norms
             
             similarities = np.dot(store_norms, query_norm)
             best_idx = np.argmax(similarities)
-            best_score = similarities[best_idx]
+            best_score = float(similarities[best_idx])
             
             if best_score >= self.similarity_threshold:
                 match = self._qa_pairs[best_idx]
                 logger.info(f"🎯 Semantic match found (score: {best_score:.3f})")
-                return (match["question"], match["answer"], float(best_score))
-        
-        return None
+                return (match["question"], match["answer"], best_score)
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Semantic search error: {e}")
+            return None
     
     def add(self, question: str, answer: str, sources: Optional[List] = None) -> None:
         """Add a Q&A pair to the store.
@@ -107,38 +115,42 @@ class SemanticQAStore:
             answer: The answer.
             sources: Optional list of source documents.
         """
-        with self._lock:
-            # Check if we already have a very similar question
+        try:
+            # Check if we already have a very similar question (outside lock)
             existing = self.find_similar(question)
             if existing and existing[2] > 0.95:
                 # Already have this question, skip
                 return
             
-            # Compute embedding
+            # Compute embedding (outside lock for performance)
             embedding = self._compute_embedding(question)
             
-            # Add to store
-            entry = {
-                "question": question,
-                "answer": answer,
-                "sources": sources or [],
-                "hit_count": 0
-            }
-            self._qa_pairs.append(entry)
-            
-            # Update embeddings array
-            if self._embeddings is None:
-                self._embeddings = embedding.reshape(1, -1)
-            else:
-                self._embeddings = np.vstack([self._embeddings, embedding])
-            
-            # Evict if over capacity
-            if len(self._qa_pairs) > self.max_entries:
-                self._evict_oldest()
-            
-            # Save to disk
-            self._save_store()
-            logger.info(f"💾 Added Q&A pair to semantic store (total: {len(self._qa_pairs)})")
+            with self._lock:
+                # Add to store
+                entry = {
+                    "question": question,
+                    "answer": answer,
+                    "sources": sources or [],
+                    "hit_count": 0
+                }
+                self._qa_pairs.append(entry)
+                
+                # Update embeddings array
+                if self._embeddings is None:
+                    self._embeddings = embedding.reshape(1, -1)
+                else:
+                    self._embeddings = np.vstack([self._embeddings, embedding])
+                
+                # Evict if over capacity
+                if len(self._qa_pairs) > self.max_entries:
+                    self._evict_oldest()
+                
+                # Save to disk
+                self._save_store()
+                logger.info(f"💾 Added Q&A pair to semantic store (total: {len(self._qa_pairs)})")
+                
+        except Exception as e:
+            logger.warning(f"Failed to add Q&A pair: {e}")
     
     def _evict_oldest(self) -> None:
         """Remove oldest entries to stay under capacity."""

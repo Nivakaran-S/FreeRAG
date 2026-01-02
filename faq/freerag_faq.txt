@@ -1,0 +1,27 @@
+Q: What is FreeRAG?
+A: FreeRAG is a free, open-source Retrieval-Augmented Generation (RAG) system that allows you to upload documents and ask questions about them. It uses advanced AI models to understand your documents and provide accurate answers.
+
+Q: How do I upload documents?
+A: You can upload documents using the file upload panel on the left side of the interface. Simply drag and drop your files or click to browse. Supported formats include PDF, DOCX, TXT, and Markdown files.
+
+Q: What types of files are supported?
+A: FreeRAG supports the following file formats:
+- PDF documents (.pdf)
+- Microsoft Word documents (.docx)
+- Plain text files (.txt)
+- Markdown files (.md)
+
+Q: How long does it take to process a document?
+A: Processing time depends on the document size. Small documents (a few pages) are processed in seconds. Larger documents may take up to a minute. The system will show you the number of chunks created after processing.
+
+Q: Why is the response slow?
+A: Response time depends on whether your question matches cached answers. If it's a new question that requires AI generation, it may take 10-30 seconds on the free tier. Repeated or similar questions are answered instantly from cache.
+
+Q: What is Dragon?
+A: Dragon is the name of the AI assistant powering FreeRAG. Dragon is friendly, helpful, and always responds in English.
+
+Q: Is my data secure?
+A: Your uploaded documents are processed locally within the application. They are not stored permanently or shared with third parties. The system uses only the uploaded content to answer your questions.
+
+Q: How accurate are the answers?
+A: The answers are based on the content of your uploaded documents. The AI retrieves relevant sections and generates responses based on that context. For best results, ensure your documents contain clear, well-organized information.
