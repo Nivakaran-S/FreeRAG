@@ -182,8 +182,7 @@ with gr.Blocks(
             
             chatbot = gr.Chatbot(
                 label="Conversation",
-                height=400,
-                show_copy_button=True
+                height=400
             )
             
             with gr.Row():
