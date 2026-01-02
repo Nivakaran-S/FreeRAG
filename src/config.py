@@ -11,7 +11,7 @@ class ModelConfig:
     repo_id: str = "microsoft/Phi-3-mini-4k-instruct"
     n_ctx: int = 2048
     n_threads: int = 2
-    max_tokens: int = 256
+    max_tokens: int = 128  # Reduced for faster responses
     temperature: float = 0.7
     verbose: bool = False
 
