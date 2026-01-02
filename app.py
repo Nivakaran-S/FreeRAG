@@ -262,15 +262,11 @@ if __name__ == "__main__":
     
     logger.info("🎉 FreeRAG is ready! Starting web server...")
     
-    # Enable queue for concurrent request handling
-    demo.queue(
-        max_size=10,  # Maximum number of requests in queue
-        default_concurrency_limit=2  # Process 2 requests concurrently
-    )
+    # Enable queue for concurrent request handling (Gradio 4.0.0 compatible)
+    demo.queue(max_size=10)
     
     demo.launch(
         server_name="0.0.0.0",
         server_port=7860,
-        share=False,
-        max_threads=4  # Allow multiple concurrent connections
+        share=False
     )
