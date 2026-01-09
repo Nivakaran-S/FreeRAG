@@ -76,7 +76,7 @@ class GroqLLM:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        max_tokens: int = 256,
+        max_tokens: int = 512,
         temperature: float = 0.7
     ) -> str:
         """Generate response using Groq with multi-key rotation and local fallback.
@@ -190,6 +190,7 @@ class GroqLLM:
         if system_prompt is None:
             system_prompt = (
                 "Your name is Ayu, the virtual travel assistant for VacayLanka. "
+                "Restrict the number of tokens produced to 512"
                 "Always speak in only ENGLISH not any other language. "
                 "You are a friendly, warm, and hospitable guide, embodying the welcoming spirit of Sri Lanka. "
                 "Answer questions based strictly on the provided document context regarding tours, destinations, and bookings. "
