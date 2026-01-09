@@ -16,6 +16,7 @@ class QueryRequest(BaseModel):
     """Request model for querying the RAG system."""
     question: str = Field(..., description="The question to ask", min_length=1)
     top_k: int = Field(default=3, description="Number of documents to retrieve", ge=1, le=10)
+    session_id: Optional[str] = Field(default=None, description="Session ID for chat history tracking")
 
 
 class QueryResponse(BaseModel):
@@ -25,6 +26,7 @@ class QueryResponse(BaseModel):
     sources: List[dict]
     cached: bool
     match_type: str
+    session_id: Optional[str] = None
 
 
 class UploadResponse(BaseModel):
@@ -139,14 +141,21 @@ async def query(request: QueryRequest):
                 match_type="error"
             )
         
-        result = pipe.query(request.question, top_k=request.top_k)
+        # Get or create session
+        session_id = request.session_id
+        if not session_id:
+            from src.session import get_session_manager
+            session_id = get_session_manager().create_session()
+        
+        result = pipe.query(request.question, top_k=request.top_k, session_id=session_id)
         
         return QueryResponse(
             question=result["question"],
             answer=result["answer"],
             sources=result.get("sources", []),
             cached=result.get("cached", False),
-            match_type=result.get("match_type", "generated")
+            match_type=result.get("match_type", "generated"),
+            session_id=session_id
         )
         
     except Exception as e:

@@ -142,8 +142,8 @@ class RAGPipeline:
         cache = get_response_cache()
         qa_store = get_qa_store()
         
-        # 1. Check exact cache first
-        cached_response = cache.get(question)
+        # 1. Check exact cache first (per-session)
+        cached_response = cache.get(question, session_id=session_id)
         if cached_response:
             return {
                 "question": question,
@@ -247,8 +247,8 @@ class RAGPipeline:
             for s in sources
         ]
         
-        # Store in both caches for future use
-        cache.set(question, answer, sources=source_list)
+        # Store in both caches for future use (per-session)
+        cache.set(question, answer, sources=source_list, session_id=session_id)
         qa_store.add(question, answer, sources=source_list)
         
         return {

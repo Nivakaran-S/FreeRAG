@@ -42,12 +42,13 @@ class ResponseCache:
         self._load_cache()
         logger.info(f"📦 Response cache initialized with {len(self._memory_cache)} entries")
     
-    def _get_cache_key(self, question: str, context_hash: Optional[str] = None) -> str:
-        """Generate a unique cache key from question and context.
+    def _get_cache_key(self, question: str, context_hash: Optional[str] = None, session_id: Optional[str] = None) -> str:
+        """Generate a unique cache key from question, context, and session.
         
         Args:
             question: The user's question (normalized).
             context_hash: Hash of the document context (optional).
+            session_id: Session ID for per-user caching (optional).
             
         Returns:
             SHA256 hash as the cache key.
@@ -55,23 +56,28 @@ class ResponseCache:
         # Normalize question: lowercase, strip whitespace
         normalized = question.lower().strip()
         
+        # Include session_id for per-session caching
+        if session_id:
+            normalized = f"{session_id}|{normalized}"
+        
         # Include context hash if provided for document-specific caching
         if context_hash:
             normalized = f"{normalized}|{context_hash}"
         
         return hashlib.sha256(normalized.encode()).hexdigest()[:16]
     
-    def get(self, question: str, context_hash: Optional[str] = None) -> Optional[str]:
+    def get(self, question: str, context_hash: Optional[str] = None, session_id: Optional[str] = None) -> Optional[str]:
         """Get cached response for a question.
         
         Args:
             question: The user's question.
             context_hash: Hash of the document context (optional).
+            session_id: Session ID for per-user caching (optional).
             
         Returns:
             Cached response if found and not expired, None otherwise.
         """
-        key = self._get_cache_key(question, context_hash)
+        key = self._get_cache_key(question, context_hash, session_id)
         
         with self._lock:
             if key in self._memory_cache:
@@ -94,7 +100,8 @@ class ResponseCache:
         question: str, 
         response: str, 
         context_hash: Optional[str] = None,
-        sources: Optional[list] = None
+        sources: Optional[list] = None,
+        session_id: Optional[str] = None
     ) -> None:
         """Store a question-response pair in cache.
         
@@ -103,8 +110,9 @@ class ResponseCache:
             response: The generated response.
             context_hash: Hash of the document context (optional).
             sources: List of source documents used.
+            session_id: Session ID for per-user caching (optional).
         """
-        key = self._get_cache_key(question, context_hash)
+        key = self._get_cache_key(question, context_hash, session_id)
         
         entry = {
             "question": question,
