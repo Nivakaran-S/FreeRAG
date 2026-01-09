@@ -61,7 +61,7 @@ class SemanticQAStore:
     def _compute_embedding(self, text: str) -> np.ndarray:
         """Compute embedding for a text."""
         model = self._get_embedding_model()
-        return model.embed([text])[0]
+        return np.array(model.embed_documents([text])[0])
     
     def find_similar(self, question: str) -> Optional[Tuple[str, str, float]]:
         """Find a similar question in the store.

@@ -218,7 +218,19 @@ class RAGPipeline:
             session_mgr = get_session_manager()
             conversation_history = session_mgr.get_history_for_prompt(session_id)
         
+        # Get document context
         context = self.retriever.retrieve_text(question, top_k)
+        
+        # Fetch VacayLanka GraphQL data and append to context
+        try:
+            from src.vacaylanka_fetcher import get_vacaylanka_fetcher
+            vacaylanka_context = get_vacaylanka_fetcher().get_context_for_llm()
+            if vacaylanka_context:
+                context = f"{context}\n\n{vacaylanka_context}"
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to fetch VacayLanka data: {e}")
+        
         answer = self.llm.chat_with_context(
             question, 
             context, 

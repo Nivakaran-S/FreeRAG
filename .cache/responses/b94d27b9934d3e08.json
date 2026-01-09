@@ -1,0 +1,24 @@
+{
+  "question": "Hello world",
+  "response": "I'm having trouble processing your request right now. Please try again in a moment.",
+  "context_hash": null,
+  "sources": [
+    {
+      "filename": "sample_ml.md",
+      "source": "C:\\Users\\LENOVO\\Desktop\\FreeRAG\\data\\sample_ml.md",
+      "distance": 0.8099029064178467
+    },
+    {
+      "filename": "freerag_faq.txt",
+      "source": "C:\\Users\\LENOVO\\Desktop\\FreeRAG\\faq\\freerag_faq.txt",
+      "distance": 0.8201040625572205
+    },
+    {
+      "filename": "freerag_faq.txt",
+      "source": "C:\\Users\\LENOVO\\Desktop\\FreeRAG\\faq\\freerag_faq.txt",
+      "distance": 0.8201040625572205
+    }
+  ],
+  "cached_at": "2026-01-09T22:48:07.792351",
+  "hit_count": 0
+}
