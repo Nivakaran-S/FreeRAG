@@ -36,3 +36,6 @@ models/
 *.gguf
 *.safetensors
 models/.cache/
+
+.env 
+env

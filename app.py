@@ -8,6 +8,10 @@ import sys
 import logging
 import threading
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 # Configure logging for HuggingFace Spaces visibility
 logging.basicConfig(
     level=logging.INFO,

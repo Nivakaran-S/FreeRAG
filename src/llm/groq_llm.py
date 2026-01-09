@@ -2,35 +2,62 @@
 
 import logging
 import os
-from typing import Optional
+from typing import Optional, List
 
 logger = logging.getLogger(__name__)
 
-# Groq API configuration
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+# Groq API configuration - Support for multiple API keys (up to 10)
+GROQ_API_KEYS: List[str] = []
+
+# Load primary key
+_primary_key = os.environ.get("GROQ_API_KEY", "")
+if _primary_key:
+    GROQ_API_KEYS.append(_primary_key)
+
+# Load additional keys (GROQ_API_KEY_2 through GROQ_API_KEY_10)
+for i in range(2, 11):
+    key = os.environ.get(f"GROQ_API_KEY_{i}", "")
+    if key:
+        GROQ_API_KEYS.append(key)
+
 GROQ_MODEL = "llama-3.1-8b-instant"  # Fast, free model on Groq
 
 
 class GroqLLM:
     """Groq-based LLM with local model fallback.
     
-    Uses Groq API for fast inference, falls back to local Phi-3
-    if Groq is unavailable or rate limited.
+    Uses Groq API for fast inference with multiple API key fallback.
+    Rotates through available keys on rate limits or errors before
+    falling back to local Phi-3 model.
     """
     
     def __init__(self):
-        """Initialize Groq client."""
-        self._groq_client = None
+        """Initialize Groq client with multiple API key support."""
+        self._groq_clients: List = []
         self._local_model = None
-        self._groq_available = bool(GROQ_API_KEY)
+        self._current_key_index = 0
+        self._groq_available = len(GROQ_API_KEYS) > 0
         
         if self._groq_available:
             try:
                 from groq import Groq
-                self._groq_client = Groq(api_key=GROQ_API_KEY)
-                logger.info("✅ Groq client initialized successfully")
+                # Initialize clients for all available API keys
+                for i, api_key in enumerate(GROQ_API_KEYS):
+                    try:
+                        client = Groq(api_key=api_key)
+                        self._groq_clients.append(client)
+                        key_name = "primary" if i == 0 else f"key_{i + 1}"
+                        logger.info(f"✅ Groq client initialized ({key_name})")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Groq client {i + 1} initialization failed: {e}")
+                
+                if not self._groq_clients:
+                    self._groq_available = False
+                    logger.warning("⚠️ No valid Groq clients initialized")
+                else:
+                    logger.info(f"🔑 {len(self._groq_clients)} Groq API key(s) available for rotation")
             except Exception as e:
-                logger.warning(f"⚠️ Groq initialization failed: {e}")
+                logger.warning(f"⚠️ Groq module initialization failed: {e}")
                 self._groq_available = False
         else:
             logger.info("📍 No GROQ_API_KEY found, using local model only")
@@ -52,7 +79,7 @@ class GroqLLM:
         max_tokens: int = 256,
         temperature: float = 0.7
     ) -> str:
-        """Generate response using Groq with local fallback.
+        """Generate response using Groq with multi-key rotation and local fallback.
         
         Args:
             prompt: User prompt/question.
@@ -63,27 +90,50 @@ class GroqLLM:
         Returns:
             Generated response string.
         """
-        # Try Groq first if available
-        if self._groq_available and self._groq_client:
-            try:
-                response = self._call_groq(prompt, system_prompt, max_tokens, temperature)
-                if response:
-                    return response
-            except Exception as e:
-                logger.warning(f"⚠️ Groq API error, falling back to local: {e}")
+        # Try all Groq API keys before falling back to local
+        if self._groq_available and self._groq_clients:
+            # Try each key starting from current index
+            keys_tried = 0
+            total_keys = len(self._groq_clients)
+            
+            while keys_tried < total_keys:
+                current_client = self._groq_clients[self._current_key_index]
+                key_name = "primary" if self._current_key_index == 0 else f"key_{self._current_key_index + 1}"
+                
+                try:
+                    response = self._call_groq_with_client(
+                        current_client, prompt, system_prompt, max_tokens, temperature
+                    )
+                    if response:
+                        return response
+                except Exception as e:
+                    error_str = str(e).lower()
+                    is_rate_limit = "rate" in error_str or "limit" in error_str or "429" in error_str
+                    
+                    if is_rate_limit:
+                        logger.warning(f"⚠️ Groq API rate limited ({key_name}), trying next key...")
+                    else:
+                        logger.warning(f"⚠️ Groq API error ({key_name}): {e}")
+                    
+                    # Move to next key
+                    self._current_key_index = (self._current_key_index + 1) % total_keys
+                    keys_tried += 1
+            
+            logger.warning(f"⚠️ All {total_keys} Groq API key(s) exhausted, falling back to local model")
         
         # Fallback to local model
         logger.info("🔄 Using local model for generation")
         return self._call_local(prompt, system_prompt, max_tokens)
     
-    def _call_groq(
+    def _call_groq_with_client(
         self,
+        client,
         prompt: str,
         system_prompt: Optional[str],
         max_tokens: int,
         temperature: float
     ) -> str:
-        """Call Groq API."""
+        """Call Groq API with a specific client."""
         messages = []
         
         if system_prompt:
@@ -91,7 +141,7 @@ class GroqLLM:
         
         messages.append({"role": "user", "content": prompt})
         
-        response = self._groq_client.chat.completions.create(
+        response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=messages,
             max_tokens=max_tokens,
