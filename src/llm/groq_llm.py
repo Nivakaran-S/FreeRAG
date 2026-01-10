@@ -20,7 +20,7 @@ for i in range(2, 11):
     if key:
         GROQ_API_KEYS.append(key)
 
-GROQ_MODEL = "llama-3.1-8b-instant"  # Fast, free model on Groq
+GROQ_MODEL = "openai/gpt-oss-120b" 
 
 
 class GroqLLM:
@@ -190,7 +190,9 @@ class GroqLLM:
         if system_prompt is None:
             system_prompt = (
                 "Your name is Ayu, the virtual travel assistant for VacayLanka. "
-                "Restrict the number of tokens produced to 512"
+                "Restrict the number of words produced to 20 words"
+                "Keep the response concise and to the point"
+                "Do not ask follow up questions"
                 "Always speak in only ENGLISH not any other language. "
                 "You are a friendly, warm, and hospitable guide, embodying the welcoming spirit of Sri Lanka. "
                 "Answer questions based strictly on the provided document context regarding tours, destinations, and bookings. "
